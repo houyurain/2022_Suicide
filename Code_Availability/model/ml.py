@@ -17,6 +17,7 @@ from sklearn.metrics import log_loss
 from tqdm import tqdm
 import xgboost as xgb
 import lightgbm as lgb
+from sklearn.model_selection import KFold
 
 
 class MLModels:
@@ -91,6 +92,64 @@ class MLModels:
         self.results = pd.DataFrame(self.results, columns=['paras', 'train_loss', 'validation_auc'])
         if verbose:
             self.report_stats()
+
+        print('Fit Done! Total Time used:', time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time)))
+        return self
+
+    def fit_5fold(self, X, y, verbose=1, sample_weight=None):
+        print('Select the best model by using 5-Folds strategy!!')
+        start_time = time.time()
+        if verbose:
+            print('Model {} Searching Space N={}: '.format(self.learner, len(self.paras_list)), self.paras_grid)
+
+        for para_d in tqdm(self.paras_list):
+            kf = KFold(random_state=0, shuffle=True)
+            auc_list = []
+            for train_index, test_index in kf.split(X):
+                X_train, X_test = X[train_index], X[test_index]
+                y_train, y_test = y[train_index], y[test_index]
+
+                if self.learner == 'LR':
+                    if para_d.get('penalty', '') == 'l1':
+                        para_d['solver'] = 'liblinear'
+                    elif para_d.get('penalty', '') == 'l2':
+                        para_d['solver'] = 'lbfgs'
+                    else:
+                        para_d['solver'] = 'saga'
+                    model = LogisticRegression(**para_d).fit(X_train, y_train, sample_weight=sample_weight)
+                elif self.learner == 'XGBOOST':
+                    model = xgb.XGBClassifier(**para_d).fit(X_train, y_train)
+                elif self.learner == 'LIGHTGBM':
+                    model = lgb.LGBMClassifier(**para_d).fit(X_train, y_train)
+                elif self.learner == 'SVM':
+                    model = svm.SVC(**para_d).fit(X_train, y_train)
+                elif self.learner == 'KNN':
+                    model = KNeighborsClassifier(**para_d).fit(X_train, y_train)
+                else:
+                    raise ValueError
+
+                T_val_predict = model.predict_proba(X_test)[:, 1]
+                auc_val = roc_auc_score(y_test, T_val_predict)
+                auc_list.append(auc_val)
+
+            auc_theta = np.mean(auc_list)
+            if auc_theta > self.best_val:  #
+                # self.best_model = model
+                self.best_hyper_paras = para_d
+                self.best_val = auc_theta
+
+        if self.learner == 'LR':
+            self.best_model = LogisticRegression(**self.best_hyper_paras).fit(X, y, sample_weight=sample_weight)
+        elif self.learner == 'XGBOOST':
+            self.best_model = xgb.XGBClassifier(**self.best_hyper_paras).fit(X, y)
+        elif self.learner == 'LIGHTGBM':
+            self.best_model = lgb.LGBMClassifier(**self.best_hyper_paras).fit(X, y)
+        elif self.learner == 'SVM':
+            self.best_model = svm.SVC(**self.best_hyper_paras).fit(X, y)
+        elif self.learner == 'KNN':
+            self.best_model = KNeighborsClassifier(**self.best_hyper_paras).fit(X, y)
+        else:
+            raise ValueError
 
         print('Fit Done! Total Time used:', time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time)))
         return self

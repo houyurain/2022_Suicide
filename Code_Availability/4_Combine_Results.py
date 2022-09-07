@@ -31,7 +31,7 @@ def bootstrap_mean_ci(x, B=1000, alpha=0.05):
     return quantile_confidence_interval, std
 
 
-def combine_local_performance_results(learner, dataset_name):
+def combine_local_performance_results(learner, dataset_name, random_range):
     auc_list = []
     sen_9_list = []
     ppv_9_list = []
@@ -41,7 +41,7 @@ def combine_local_performance_results(learner, dataset_name):
     output_path = 'Results/Local_performance/'
     check_and_mkdir(output_path)
 
-    for rnd_seed in range(50):
+    for rnd_seed in range(random_range):
         res_df = pd.read_csv(df_path + 'test_results_' + learner + 'r' + str(rnd_seed) + '.csv')
         res_df = res_df.set_index(['Unnamed: 0'])
         auc = res_df.loc['r_9', 'AUC']
@@ -80,16 +80,22 @@ def combine_coef_results(dataset_name):
     coef_data = coef_data.rename(columns={'train_x_model': 'RS_0'})
     coef_data = coef_data[['index', 'RS_0']]
     rs_list = ['RS_0']
-    for rs in range(1, 50):
+    coef_data['rank_0'] = coef_data['RS_0'].rank(ascending=False)
+    rs_rank_list = ['rank_0']
+    for rs in range(1, 20):
         temp_coef_data = pd.read_csv(data_path + 'model_coef_train_LRr' + str(rs) + '.csv')
         temp_coef_data = temp_coef_data.rename(columns={'train_x_model': 'RS_' + str(rs)})
         temp_coef_data = temp_coef_data[['index', 'RS_' + str(rs)]]
+        temp_coef_data['rank_' + str(rs)] = temp_coef_data['RS_' + str(rs)].rank(ascending=False)
         coef_data = pd.merge(coef_data, temp_coef_data, on='index')
         rs_list.append('RS_' + str(rs))
+        rs_rank_list.append('rank_' + str(rs))
     coef_mean = coef_data[rs_list].mean(axis=1).tolist()
     coef_std = coef_data[rs_list].std(axis=1).tolist()
+    rank_mean = coef_data[rs_rank_list].mean(axis=1).tolist()
     coef_data['coef_mean'] = coef_mean
     coef_data['coef_std'] = coef_std
+    coef_data['rank_mean'] = rank_mean
 
     coef_rs_df = coef_data[rs_list]
     coef_rs_df = coef_rs_df.reset_index(drop=True)
@@ -102,7 +108,7 @@ def combine_coef_results(dataset_name):
         coef_ci_std.append('{:.4f}'.format(ci_res[1]))
     coef_data['coef_ci'] = coef_ci_list
     coef_data['coef_ci_std'] = coef_ci_std
-    coef_data = coef_data[['index', 'coef_mean', 'coef_std', 'coef_ci', 'coef_ci_std']]
+    coef_data = coef_data[['index', 'coef_mean', 'coef_std', 'coef_ci', 'coef_ci_std', 'rank_mean']]
     # print(coef_data)
     coef_data.to_csv(output_path + dataset_name + '_coef_res.csv', index=False)
 
@@ -117,7 +123,7 @@ def combine_gbm_featureImportans_results(dataset_name):
     featureImportans_data = featureImportans_data.rename(columns={'feature_importances_norm': 'RS_0'})
     featureImportans_data = featureImportans_data[['feature_name', 'RS_0']]
     rs_list = ['RS_0']
-    for rs in range(1, 50):
+    for rs in range(1, 20):
         temp_featureImportans_data = pd.read_csv(data_path + 'feature_importance_LIGHTGBMr' + str(rs) + '.csv')
         temp_featureImportans_data['feature_importances_norm'] = (temp_featureImportans_data['feature_importances_'] - temp_featureImportans_data['feature_importances_'].min()) / (temp_featureImportans_data['feature_importances_'].max() - temp_featureImportans_data['feature_importances_'].min())
         temp_featureImportans_data = temp_featureImportans_data.rename(columns={'feature_importances_norm': 'RS_' + str(rs)})
@@ -157,7 +163,7 @@ def combine_transfer_performance_results(learner, dataset_name):
     output_path = 'Results/Transfer_performance/'
     check_and_mkdir(output_path)
 
-    for rnd_seed in range(50):
+    for rnd_seed in range(20):
         res_df = pd.read_csv(df_path + 'test_results_' + learner + 'r' + str(rnd_seed) + '.csv')
         res_df = res_df.set_index(['Unnamed: 0'])
         auc = res_df.loc['r_9', 'AUC']
@@ -193,7 +199,7 @@ def combine_final_res(learner):
     dataset_list = ['apcd', 'hidd', 'khin']
     res = pd.DataFrame()
     for dataset in dataset_list:
-        res_path = local_path + dataset + '_' + learner + '_performance_res.csv'
+        res_path = local_path + dataset + '_' + learner + '_local_performance_res.csv'
         res_data = pd.read_csv(res_path)
         res = pd.concat((res, res_data))
 
@@ -201,7 +207,7 @@ def combine_final_res(learner):
         for dataset_2 in dataset_list:
             if dataset_1 != dataset_2:
                 dataset = dataset_1 + '_' + dataset_2
-                res_path = trans_path + dataset + '_' + learner + '_performance_res.csv'
+                res_path = trans_path + dataset + '_' + learner + '_transfer_performance_res.csv'
                 res_data = pd.read_csv(res_path)
                 res = pd.concat((res, res_data))
     print(res)
@@ -209,13 +215,15 @@ def combine_final_res(learner):
 
 
 def main():
-    # combine_local_performance_results('LR', 'apcd')
-    # combine_coef_results('apcd')
+    for dataset_name in ['apcd', 'hidd', 'khin']:
+        combine_local_performance_results('LSTM', dataset_name)
+        # combine_coef_results(dataset_name)
     # combine_gbm_featureImportans_results('apcd')
 
-    # combine_transfer_performance_results('LR', 'apcd_hidd')
+    for dataset_name in ['apcd_hidd', 'apcd_khin', 'hidd_apcd', 'hidd_khin', 'khin_apcd', 'khin_hidd']:
+        combine_transfer_performance_results('LSTM', dataset_name)
 
-    combine_final_res('LR')
+    combine_final_res('LSTM')
 
 
 if __name__ == '__main__':

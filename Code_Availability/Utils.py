@@ -63,6 +63,7 @@ def load_model(model_class, filename):
 
     model = model_class(**state['model_params'])
     model.load_state_dict(state['model_state'])
+    model.to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
 
     return model
 
@@ -201,3 +202,54 @@ def x_target_to_source(target_x, target_vocab, source_x_dim, source_vocab):
             print('{}th code {} (cnt:{} {}) from target not exist in source vocabulary'.format(
                 i, code, target_vocab.code2count[code], target_vocab.id2name[i]))
     return target_x_transform
+
+
+rule_1 = ['E950', 'E951', 'E952', 'E953', 'E954', 'E955', 'E956', 'E957', 'E958']
+rule_2 = [str(x) for x in range(870, 900)] + [str(x) for x in range(960, 990)]
+rule_3_1 = [str(x) for x in range(960, 990)] + ['9947', '881']
+rule_3_2 = ['2908', '2909', '29383', '295', '2960', '29610', '29611', '29612', '29613', '29614'] + \
+           [str(x) for x in range(29620, 29637)] + [str(x) for x in range(29630, 29637)] + \
+           [str(x) for x in range(29640, 29647)] + [str(x) for x in range(29650, 29657)] + \
+           [str(x) for x in range(29660, 29667)] + ['2967', '29680', '29681', '29682', '29689', '29690', '29699',
+                                                    '297'] + \
+           [str(x) for x in range(2980, 2990)] + ['299', '3004', '301'] + [str(x) for x in range(3090, 3100)] + \
+           ['311', '7801']
+
+
+def check_is_suicide(dx_list):
+    sui = False
+    for dx in dx_list:
+        if dx[:4] in rule_1:
+            sui = True
+        elif (dx[:3] in rule_2) and ('V6284' in dx_list):
+            sui = True
+
+    if not sui:
+        flag_1 = False
+        flag_2 = False
+        for dx in dx_list:
+            for sa_code_1 in rule_3_1:
+                if sa_code_1 == dx[:len(sa_code_1)]:
+                    flag_1 = True
+            for sa_code_2 in rule_3_2:
+                if sa_code_2 == dx[:len(sa_code_2)]:
+                    flag_2 = True
+        if flag_1 and flag_2:
+            sui = True
+    return sui
+
+
+def get_smd(x1, x2):
+    m1 = x1.mean()
+    m2 = x2.mean()
+    v1 = x1.var()
+    v2 = x2.var()
+
+    VAR = np.sqrt((v1 + v2) / 2)
+    smd = np.divide(m1 - m2, VAR, out=np.zeros_like(m1), where=VAR != 0)
+
+    return smd
+
+
+def get_prob(X, coef, intercept):
+    return 1 / (1 + np.exp(-(intercept + (X * coef).sum(axis=1))))
