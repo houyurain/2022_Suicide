@@ -152,7 +152,7 @@ def combine_gbm_featureImportans_results(dataset_name):
     featureImportans_data.to_csv(output_path + dataset_name + '_featureImportans_res.csv', index=False)
 
 
-def combine_transfer_performance_results(learner, dataset_name):
+def combine_transfer_performance_results(learner, dataset_name, random_range):
     dataset_name_1, dataset_name_2 = dataset_name.split('_')
     auc_list = []
     sen_9_list = []
@@ -163,7 +163,7 @@ def combine_transfer_performance_results(learner, dataset_name):
     output_path = 'Results/Transfer_performance/'
     check_and_mkdir(output_path)
 
-    for rnd_seed in range(20):
+    for rnd_seed in range(random_range):
         res_df = pd.read_csv(df_path + 'test_results_' + learner + 'r' + str(rnd_seed) + '.csv')
         res_df = res_df.set_index(['Unnamed: 0'])
         auc = res_df.loc['r_9', 'AUC']
@@ -215,15 +215,17 @@ def combine_final_res(learner):
 
 
 def main():
+    run_model = 'LIGHTGBM'
+    random_range = 20
     for dataset_name in ['apcd', 'hidd', 'khin']:
-        combine_local_performance_results('LSTM', dataset_name)
+        combine_local_performance_results(run_model, dataset_name, random_range)
         # combine_coef_results(dataset_name)
     # combine_gbm_featureImportans_results('apcd')
 
     for dataset_name in ['apcd_hidd', 'apcd_khin', 'hidd_apcd', 'hidd_khin', 'khin_apcd', 'khin_hidd']:
-        combine_transfer_performance_results('LSTM', dataset_name)
+        combine_transfer_performance_results(run_model, dataset_name, random_range)
 
-    combine_final_res('LSTM')
+    combine_final_res(run_model)
 
 
 if __name__ == '__main__':
