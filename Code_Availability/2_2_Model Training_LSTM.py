@@ -264,7 +264,7 @@ if __name__ == '__main__':
 
         epoch_losses = np.mean(epoch_losses)
 
-    save_model(best_model, args.save_model_filename, model_params=best_hyper_paras)
+    save_model(best_model, args.save_model_filename, model_params=model_params)
 
 
     auc_test, loss_test, Y_test, Y_pred_test, uid_test = transfer_data(best_model, test_loader, cuda=args.cuda, normalized=False)
