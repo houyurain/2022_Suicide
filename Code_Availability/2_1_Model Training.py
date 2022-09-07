@@ -134,6 +134,10 @@ if __name__ == '__main__':
     print('args: ', args)
     model = ml.MLModels(args.run_model, paras_grid).fit_5fold(train_x, train_y)
 
+    with open(os.path.join(os.path.dirname(args.save_model_filename), '{}_{}_{}.model'.format(args.dataset, args.run_model, args.random_seed)), 'wb') as f:
+        pickle.dump(model, f)
+    f.close()
+
     print('...Original data results: ')
     print('......Results at specificity 0.9:')
     result_1 = model.performance_at_specificity_or_threshold(test_x, test_y, specificity=0.9)
